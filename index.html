@@ -190,6 +190,31 @@
       display: block;
     }
 
+    /* Video thumbnail placeholder */
+    .thumb-video {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(74,55,40,0.07);
+      padding: 6px;
+    }
+
+    .thumb-video .vid-icon { font-size: 1.6rem; line-height: 1; }
+
+    .thumb-video .vid-name {
+      font-size: 0.55rem;
+      color: var(--text-light);
+      margin-top: 5px;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      text-align: center;
+    }
+
     .thumb-remove {
       position: absolute;
       top: 3px; right: 3px;
@@ -199,8 +224,6 @@
       border: none;
       border-radius: 50%;
       font-size: 12px;
-      line-height: 20px;
-      text-align: center;
       cursor: pointer;
       display: flex; align-items: center; justify-content: center;
       transition: background 0.15s;
@@ -209,13 +232,29 @@
     .thumb-remove:hover { background: rgba(200,50,50,0.85); }
 
     /* ── Progress bars ──────────────────────────────────────────── */
-    .progress-list { margin-top: 16px; display: flex; flex-direction: column; gap: 10px; }
+    .progress-list { margin-top: 16px; display: flex; flex-direction: column; gap: 12px; }
 
     .progress-item { font-size: 0.82rem; color: var(--text-light); }
 
-    .progress-item .name {
-      display: flex; justify-content: space-between;
+    .progress-item .p-name {
+      display: flex; justify-content: space-between; align-items: center;
       margin-bottom: 4px;
+      gap: 8px;
+    }
+
+    .progress-item .p-filename {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+    }
+
+    .progress-item .p-label { flex-shrink: 0; font-size: 0.78rem; }
+
+    .p-hint {
+      font-size: 0.72rem;
+      color: var(--blush-dark);
+      margin-bottom: 5px;
     }
 
     .progress-bar-bg {
@@ -230,8 +269,11 @@
       background: linear-gradient(90deg, var(--blush-dark), var(--gold));
       border-radius: 99px;
       width: 0%;
-      transition: width 0.3s ease;
+      transition: width 0.25s ease;
     }
+
+    .progress-bar-fill.done  { background: linear-gradient(90deg, #5cb87a, #3a9e5f); width: 100% !important; }
+    .progress-bar-fill.error { background: #e87070; width: 100% !important; }
 
     /* ── Button ─────────────────────────────────────────────────── */
     .btn-upload {
@@ -261,6 +303,7 @@
       border-radius: 10px;
       font-size: 0.95rem;
       line-height: 1.5;
+      white-space: pre-line;
       display: none;
     }
 
@@ -311,13 +354,13 @@
       </div>
 
       <div class="field">
-        <label>Fotoğraflarınız</label>
-        <div class="drop-zone" id="dropZone" role="button" tabindex="0" aria-label="Fotoğraf seç">
+        <label>Fotoğraf &amp; Video</label>
+        <div class="drop-zone" id="dropZone" role="button" tabindex="0" aria-label="Dosya seç">
           <span class="drop-icon">📷</span>
-          <div class="drop-text">Fotoğraf seçmek için dokunun</div>
-          <div class="drop-hint">Birden fazla fotoğraf seçebilirsiniz</div>
+          <div class="drop-text">Fotoğraf veya video seçmek için dokunun</div>
+          <div class="drop-hint">Birden fazla dosya seçebilirsiniz</div>
         </div>
-        <input type="file" id="fileInput" name="files" accept="image/*" multiple />
+        <input type="file" id="fileInput" name="files" accept="image/*,video/*" multiple />
         <div class="preview-grid" id="previewGrid"></div>
       </div>
 
@@ -340,16 +383,17 @@
   const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxbKVRDhCnR_Y_OWnrbDCQ2swuo8g4AHN1gXszTy0sI4RAodXHmDxgSxIA-b3Fqh3RRpQ/exec";
   // ────────────────────────────────────────────────────────────────────────
 
-  const form        = document.getElementById("uploadForm");
-  const nameInput   = document.getElementById("guestName");
-  const fileInput   = document.getElementById("fileInput");
-  const dropZone    = document.getElementById("dropZone");
-  const previewGrid = document.getElementById("previewGrid");
-  const progressList= document.getElementById("progressList");
-  const submitBtn   = document.getElementById("submitBtn");
-  const msgBox      = document.getElementById("msgBox");
+  const LARGE_FILE_THRESHOLD = 50 * 1024 * 1024; // 50 MB
 
-  // Files selected by user (File objects)
+  const form         = document.getElementById("uploadForm");
+  const nameInput    = document.getElementById("guestName");
+  const fileInput    = document.getElementById("fileInput");
+  const dropZone     = document.getElementById("dropZone");
+  const previewGrid  = document.getElementById("previewGrid");
+  const progressList = document.getElementById("progressList");
+  const submitBtn    = document.getElementById("submitBtn");
+  const msgBox       = document.getElementById("msgBox");
+
   let selectedFiles = [];
 
   // ── Drop zone interactions ────────────────────────────────────────────────
@@ -357,7 +401,7 @@
   dropZone.addEventListener("keydown",  e => { if (e.key === "Enter" || e.key === " ") fileInput.click(); });
   dropZone.addEventListener("dragover", e => { e.preventDefault(); dropZone.classList.add("drag-over"); });
   dropZone.addEventListener("dragleave",() => dropZone.classList.remove("drag-over"));
-  dropZone.addEventListener("drop",     e => {
+  dropZone.addEventListener("drop", e => {
     e.preventDefault();
     dropZone.classList.remove("drag-over");
     addFiles([...e.dataTransfer.files]);
@@ -365,12 +409,12 @@
 
   fileInput.addEventListener("change", () => {
     addFiles([...fileInput.files]);
-    fileInput.value = ""; // reset so same file can be re-added
+    fileInput.value = "";
   });
 
   function addFiles(newFiles) {
-    const imageFiles = newFiles.filter(f => f.type.startsWith("image/"));
-    selectedFiles = [...selectedFiles, ...imageFiles];
+    const media = newFiles.filter(f => f.type.startsWith("image/") || f.type.startsWith("video/"));
+    selectedFiles = [...selectedFiles, ...media];
     renderPreviews();
   }
 
@@ -385,10 +429,18 @@
       const wrap = document.createElement("div");
       wrap.className = "thumb-wrap";
 
-      const img = document.createElement("img");
-      img.src = URL.createObjectURL(file);
-      img.alt = file.name;
-      img.onload = () => URL.revokeObjectURL(img.src);
+      if (file.type.startsWith("video/")) {
+        const placeholder = document.createElement("div");
+        placeholder.className = "thumb-video";
+        placeholder.innerHTML = `<span class="vid-icon">🎬</span><span class="vid-name">${escHtml(file.name)}</span>`;
+        wrap.appendChild(placeholder);
+      } else {
+        const img = document.createElement("img");
+        img.src = URL.createObjectURL(file);
+        img.alt = file.name;
+        img.onload = () => URL.revokeObjectURL(img.src);
+        wrap.appendChild(img);
+      }
 
       const btn = document.createElement("button");
       btn.type = "button";
@@ -396,9 +448,8 @@
       btn.innerHTML = "×";
       btn.setAttribute("aria-label", "Kaldır");
       btn.addEventListener("click", () => removeFile(i));
-
-      wrap.appendChild(img);
       wrap.appendChild(btn);
+
       previewGrid.appendChild(wrap);
     });
   }
@@ -415,7 +466,7 @@
       return;
     }
     if (selectedFiles.length === 0) {
-      showMsg("Lütfen en az bir fotoğraf seçin.", "error");
+      showMsg("Lütfen en az bir fotoğraf veya video seçin.", "error");
       return;
     }
     if (!APPS_SCRIPT_URL) {
@@ -428,32 +479,33 @@
     progressList.innerHTML = "";
 
     // Build progress rows
-    const progressItems = selectedFiles.map((file, i) => {
+    selectedFiles.forEach((file, i) => {
+      const isLarge = file.size >= LARGE_FILE_THRESHOLD;
       const item = document.createElement("div");
       item.className = "progress-item";
       item.innerHTML = `
-        <div class="name">
-          <span>${escHtml(file.name)}</span>
-          <span class="pct-${i}">0%</span>
+        ${isLarge ? `<div class="p-hint">Büyük dosya algılandı, yükleme biraz sürebilir…</div>` : ""}
+        <div class="p-name">
+          <span class="p-filename">${escHtml(file.name)}</span>
+          <span class="p-label" id="lbl-${i}">0%</span>
         </div>
         <div class="progress-bar-bg">
           <div class="progress-bar-fill" id="bar-${i}"></div>
         </div>`;
       progressList.appendChild(item);
-      return item;
     });
 
     let successCount = 0;
-    let errors = [];
+    const errors = [];
 
     for (let i = 0; i < selectedFiles.length; i++) {
       const file = selectedFiles[i];
       try {
         await uploadFile(file, guestName, i);
         successCount++;
-        setProgress(i, 100);
+        setProgressDone(i);
       } catch (err) {
-        setProgress(i, 100, true);
+        setProgressError(i);
         errors.push(file.name + ": " + err.message);
       }
     }
@@ -462,31 +514,37 @@
     submitBtn.textContent = "Yükle";
 
     if (errors.length === 0) {
-      showMsg(`Teşekkürler ${escHtml(guestName)}! Fotoğrafların yüklendi 🎉`, "success");
+      showMsg(`Teşekkürler ${escHtml(guestName)}! Dosyaların yüklendi 🎉`, "success");
       resetForm();
     } else if (successCount > 0) {
-      showMsg(`${successCount} fotoğraf yüklendi. Bazı hatalar oluştu:\n${errors.join("\n")}`, "error");
+      showMsg(`${successCount} dosya yüklendi. Bazı hatalar oluştu:\n${errors.join("\n")}`, "error");
     } else {
       showMsg("Yükleme başarısız:\n" + errors.join("\n"), "error");
     }
   });
 
-  // ── Upload a single file via base64 ───────────────────────────────────────
-  function uploadFile(file, guestName, index) {
+  // ── Upload router ─────────────────────────────────────────────────────────
+  async function uploadFile(file, guestName, index) {
+    if (file.size >= LARGE_FILE_THRESHOLD) {
+      await resumableUpload(file, guestName, index);
+    } else {
+      await directUpload(file, guestName, index);
+    }
+  }
+
+  // ── Direct upload: base64 → Apps Script (< 50 MB) ────────────────────────
+  function directUpload(file, guestName, index) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
 
       reader.onprogress = ev => {
         if (ev.lengthComputable) {
-          // Reading phase counts as 0–50%
           setProgress(index, Math.round((ev.loaded / ev.total) * 50));
         }
       };
 
       reader.onload = () => {
-        // base64 string without the data:image/...;base64, prefix
         const base64 = reader.result.split(",")[1];
-
         setProgress(index, 55);
 
         const params = new URLSearchParams();
@@ -502,12 +560,8 @@
         })
           .then(r => r.json())
           .then(data => {
-            setProgress(index, 100);
-            if (data.success) {
-              resolve(data);
-            } else {
-              reject(new Error(data.error || "Bilinmeyen hata"));
-            }
+            if (data.success) resolve(data);
+            else reject(new Error(data.error || "Bilinmeyen hata"));
           })
           .catch(err => reject(new Error("Ağ hatası: " + err.message)));
       };
@@ -517,17 +571,86 @@
     });
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
-  function setProgress(index, pct, isError = false) {
-    const bar = document.getElementById(`bar-${index}`);
-    const pctEl = progressList.querySelectorAll(`.pct-${index}`)[0];
-    if (bar) {
-      bar.style.width = pct + "%";
-      if (isError) bar.style.background = "#e87070";
+  // ── Resumable upload: PUT directly to Drive session URL (≥ 50 MB) ─────────
+  async function resumableUpload(file, guestName, index) {
+    // Step 1: get session URL from Apps Script
+    setProgressLabel(index, "Hazırlanıyor…");
+
+    const initResp = await fetch(APPS_SCRIPT_URL, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({
+        action:    "initResumable",
+        guestName: guestName,
+        fileName:  file.name,
+        mimeType:  file.type || "application/octet-stream",
+        fileSize:  file.size
+      })
+    });
+
+    const initData = await initResp.json();
+    if (!initData.success) {
+      throw new Error(initData.error || "Yükleme oturumu başlatılamadı.");
     }
-    if (pctEl) pctEl.textContent = isError ? "Hata" : pct + "%";
+
+    const uploadUrl = initData.uploadUrl;
+
+    // Step 2: PUT file directly to Drive resumable session URL
+    await new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("PUT", uploadUrl);
+      xhr.setRequestHeader("Content-Range", `bytes 0-${file.size - 1}/${file.size}`);
+
+      xhr.upload.onprogress = ev => {
+        if (ev.lengthComputable) {
+          const pct = Math.round((ev.loaded / ev.total) * 100);
+          setProgress(index, pct);
+        }
+      };
+
+      xhr.onload = () => {
+        if (xhr.status === 200 || xhr.status === 201) {
+          resolve();
+        } else {
+          reject(new Error(`Yükleme hatası (HTTP ${xhr.status})`));
+        }
+      };
+
+      xhr.onerror   = () => reject(new Error("Ağ bağlantısı hatası."));
+      xhr.ontimeout = () => reject(new Error("Zaman aşımı."));
+
+      xhr.send(file);
+    });
   }
 
+  // ── Progress helpers ──────────────────────────────────────────────────────
+  function setProgress(index, pct) {
+    const bar = document.getElementById(`bar-${index}`);
+    const lbl = document.getElementById(`lbl-${index}`);
+    if (bar) bar.style.width = pct + "%";
+    if (lbl) lbl.textContent = pct + "%";
+  }
+
+  function setProgressLabel(index, text) {
+    const lbl = document.getElementById(`lbl-${index}`);
+    if (lbl) lbl.textContent = text;
+  }
+
+  function setProgressDone(index) {
+    const bar = document.getElementById(`bar-${index}`);
+    const lbl = document.getElementById(`lbl-${index}`);
+    if (bar) { bar.classList.add("done"); bar.style.width = "100%"; }
+    if (lbl) lbl.textContent = "✓ Yüklendi";
+  }
+
+  function setProgressError(index) {
+    const bar = document.getElementById(`bar-${index}`);
+    const lbl = document.getElementById(`lbl-${index}`);
+    if (bar) { bar.classList.add("error"); }
+    if (lbl) lbl.textContent = "Hata";
+  }
+
+  // ── Misc helpers ──────────────────────────────────────────────────────────
   function showMsg(text, type) {
     msgBox.textContent = text;
     msgBox.className = "message " + type;
@@ -535,9 +658,7 @@
     msgBox.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 
-  function hideMsg() {
-    msgBox.style.display = "none";
-  }
+  function hideMsg() { msgBox.style.display = "none"; }
 
   function resetForm() {
     selectedFiles = [];
