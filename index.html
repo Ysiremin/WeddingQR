@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reyyan &amp; Fatih — Fotoğraf Yükle</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Lato:wght@300;400&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Reset & base ───────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --cream:      #fdf8f2;
+      --blush:      #e8c4b0;
+      --blush-dark: #c99a85;
+      --gold:       #b8975a;
+      --gold-light: #d4b97a;
+      --text:       #4a3728;
+      --text-light: #7a6255;
+      --white:      #ffffff;
+      --shadow:     0 4px 24px rgba(74, 55, 40, 0.10);
+      --radius:     14px;
+    }
+
+    html, body {
+      min-height: 100%;
+      background: var(--cream);
+      color: var(--text);
+      font-family: 'Lato', sans-serif;
+      font-weight: 300;
+    }
+
+    /* ── Layout ─────────────────────────────────────────────────── */
+    .page {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px 60px;
+      background:
+        radial-gradient(ellipse at 20% 10%, rgba(232,196,176,0.35) 0%, transparent 55%),
+        radial-gradient(ellipse at 80% 90%, rgba(184,151,90,0.18) 0%, transparent 50%),
+        var(--cream);
+    }
+
+    /* ── Header ─────────────────────────────────────────────────── */
+    header { text-align: center; margin-bottom: 36px; }
+
+    .names {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(2.4rem, 9vw, 3.6rem);
+      font-weight: 300;
+      letter-spacing: 0.04em;
+      color: var(--text);
+      line-height: 1.1;
+    }
+
+    .heart {
+      display: inline-block;
+      color: var(--blush-dark);
+      font-size: 0.75em;
+      vertical-align: middle;
+      margin: 0 0.25em;
+      animation: heartbeat 2.4s ease-in-out infinite;
+    }
+
+    @keyframes heartbeat {
+      0%, 100% { transform: scale(1); }
+      14%       { transform: scale(1.18); }
+      28%       { transform: scale(1); }
+      42%       { transform: scale(1.12); }
+      56%       { transform: scale(1); }
+    }
+
+    .divider {
+      width: 60px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--gold), transparent);
+      margin: 14px auto;
+    }
+
+    .subtitle {
+      font-family: 'Cormorant Garamond', serif;
+      font-style: italic;
+      font-size: clamp(1rem, 4vw, 1.25rem);
+      color: var(--text-light);
+      letter-spacing: 0.02em;
+    }
+
+    /* ── Card ───────────────────────────────────────────────────── */
+    .card {
+      width: 100%;
+      max-width: 480px;
+      background: var(--white);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 32px 28px;
+      border: 1px solid rgba(184,151,90,0.15);
+    }
+
+    /* ── Form elements ──────────────────────────────────────────── */
+    .field { margin-bottom: 22px; }
+
+    label {
+      display: block;
+      font-size: 0.78rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-light);
+      margin-bottom: 8px;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      border: 1px solid rgba(184,151,90,0.4);
+      border-radius: 8px;
+      padding: 13px 16px;
+      font-family: 'Lato', sans-serif;
+      font-size: 1rem;
+      color: var(--text);
+      background: var(--cream);
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    input[type="text"]::placeholder { color: var(--blush-dark); opacity: 0.7; }
+
+    input[type="text"]:focus {
+      border-color: var(--gold);
+      box-shadow: 0 0 0 3px rgba(184,151,90,0.15);
+    }
+
+    /* ── File drop zone ─────────────────────────────────────────── */
+    input[type="file"] { display: none; }
+
+    .drop-zone {
+      border: 2px dashed rgba(184,151,90,0.5);
+      border-radius: var(--radius);
+      padding: 28px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      background: var(--cream);
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .drop-zone:hover, .drop-zone.drag-over {
+      border-color: var(--gold);
+      background: rgba(184,151,90,0.06);
+    }
+
+    .drop-icon { font-size: 2rem; display: block; margin-bottom: 8px; }
+
+    .drop-text {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.05rem;
+      color: var(--text-light);
+    }
+
+    .drop-hint {
+      font-size: 0.78rem;
+      color: var(--blush-dark);
+      margin-top: 4px;
+    }
+
+    /* ── Thumbnails ─────────────────────────────────────────────── */
+    .preview-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .thumb-wrap {
+      position: relative;
+      aspect-ratio: 1;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid rgba(184,151,90,0.25);
+      background: var(--cream);
+    }
+
+    .thumb-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .thumb-remove {
+      position: absolute;
+      top: 3px; right: 3px;
+      width: 20px; height: 20px;
+      background: rgba(74,55,40,0.7);
+      color: #fff;
+      border: none;
+      border-radius: 50%;
+      font-size: 12px;
+      line-height: 20px;
+      text-align: center;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s;
+    }
+
+    .thumb-remove:hover { background: rgba(200,50,50,0.85); }
+
+    /* ── Progress bars ──────────────────────────────────────────── */
+    .progress-list { margin-top: 16px; display: flex; flex-direction: column; gap: 10px; }
+
+    .progress-item { font-size: 0.82rem; color: var(--text-light); }
+
+    .progress-item .name {
+      display: flex; justify-content: space-between;
+      margin-bottom: 4px;
+    }
+
+    .progress-bar-bg {
+      height: 4px;
+      background: rgba(184,151,90,0.2);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--blush-dark), var(--gold));
+      border-radius: 99px;
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    /* ── Button ─────────────────────────────────────────────────── */
+    .btn-upload {
+      width: 100%;
+      padding: 15px;
+      background: linear-gradient(135deg, var(--blush-dark) 0%, var(--gold) 100%);
+      color: var(--white);
+      border: none;
+      border-radius: 10px;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.15rem;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: opacity 0.2s, transform 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .btn-upload:hover:not(:disabled) { opacity: 0.9; }
+    .btn-upload:active:not(:disabled) { transform: scale(0.98); }
+    .btn-upload:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    /* ── Messages ───────────────────────────────────────────────── */
+    .message {
+      margin-top: 20px;
+      padding: 14px 18px;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      line-height: 1.5;
+      display: none;
+    }
+
+    .message.success {
+      background: #f0faf4;
+      border: 1px solid #a8d5b5;
+      color: #2d6a45;
+    }
+
+    .message.error {
+      background: #fdf2f2;
+      border: 1px solid #e8b0b0;
+      color: #8b2e2e;
+    }
+
+    /* ── Footer ─────────────────────────────────────────────────── */
+    footer {
+      margin-top: 40px;
+      font-size: 0.72rem;
+      color: var(--blush-dark);
+      letter-spacing: 0.08em;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <div class="names">Reyyan <span class="heart">♥</span> Fatih</div>
+    <div class="divider"></div>
+    <div class="subtitle">Anılarını bizimle paylaş 📸</div>
+  </header>
+
+  <div class="card">
+    <form id="uploadForm" novalidate>
+
+      <div class="field">
+        <label for="guestName">Adınız</label>
+        <input
+          type="text"
+          id="guestName"
+          name="guestName"
+          placeholder="Adınızı girin…"
+          autocomplete="name"
+          required
+        />
+      </div>
+
+      <div class="field">
+        <label>Fotoğraflarınız</label>
+        <div class="drop-zone" id="dropZone" role="button" tabindex="0" aria-label="Fotoğraf seç">
+          <span class="drop-icon">📷</span>
+          <div class="drop-text">Fotoğraf seçmek için dokunun</div>
+          <div class="drop-hint">Birden fazla fotoğraf seçebilirsiniz</div>
+        </div>
+        <input type="file" id="fileInput" name="files" accept="image/*" multiple />
+        <div class="preview-grid" id="previewGrid"></div>
+      </div>
+
+      <div class="progress-list" id="progressList"></div>
+
+      <button type="submit" class="btn-upload" id="submitBtn">Yükle</button>
+
+    </form>
+
+    <div class="message" id="msgBox"></div>
+  </div>
+
+  <footer>Reyyan &amp; Fatih — 2025</footer>
+
+</div>
+
+<script>
+  // ── CONFIG ───────────────────────────────────────────────────────────────
+  // Paste your Google Apps Script Web App URL here:
+  const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwI20zq5D7HI5AM6HhAf4QekJfjEFkkP9Vq_Hf09KHsIMhF9DVg93LoCPzqylvTLlklCA/exec";
+  // ────────────────────────────────────────────────────────────────────────
+
+  const form        = document.getElementById("uploadForm");
+  const nameInput   = document.getElementById("guestName");
+  const fileInput   = document.getElementById("fileInput");
+  const dropZone    = document.getElementById("dropZone");
+  const previewGrid = document.getElementById("previewGrid");
+  const progressList= document.getElementById("progressList");
+  const submitBtn   = document.getElementById("submitBtn");
+  const msgBox      = document.getElementById("msgBox");
+
+  // Files selected by user (File objects)
+  let selectedFiles = [];
+
+  // ── Drop zone interactions ────────────────────────────────────────────────
+  dropZone.addEventListener("click",    () => fileInput.click());
+  dropZone.addEventListener("keydown",  e => { if (e.key === "Enter" || e.key === " ") fileInput.click(); });
+  dropZone.addEventListener("dragover", e => { e.preventDefault(); dropZone.classList.add("drag-over"); });
+  dropZone.addEventListener("dragleave",() => dropZone.classList.remove("drag-over"));
+  dropZone.addEventListener("drop",     e => {
+    e.preventDefault();
+    dropZone.classList.remove("drag-over");
+    addFiles([...e.dataTransfer.files]);
+  });
+
+  fileInput.addEventListener("change", () => {
+    addFiles([...fileInput.files]);
+    fileInput.value = ""; // reset so same file can be re-added
+  });
+
+  function addFiles(newFiles) {
+    const imageFiles = newFiles.filter(f => f.type.startsWith("image/"));
+    selectedFiles = [...selectedFiles, ...imageFiles];
+    renderPreviews();
+  }
+
+  function removeFile(index) {
+    selectedFiles.splice(index, 1);
+    renderPreviews();
+  }
+
+  function renderPreviews() {
+    previewGrid.innerHTML = "";
+    selectedFiles.forEach((file, i) => {
+      const wrap = document.createElement("div");
+      wrap.className = "thumb-wrap";
+
+      const img = document.createElement("img");
+      img.src = URL.createObjectURL(file);
+      img.alt = file.name;
+      img.onload = () => URL.revokeObjectURL(img.src);
+
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "thumb-remove";
+      btn.innerHTML = "×";
+      btn.setAttribute("aria-label", "Kaldır");
+      btn.addEventListener("click", () => removeFile(i));
+
+      wrap.appendChild(img);
+      wrap.appendChild(btn);
+      previewGrid.appendChild(wrap);
+    });
+  }
+
+  // ── Form submit ───────────────────────────────────────────────────────────
+  form.addEventListener("submit", async e => {
+    e.preventDefault();
+    hideMsg();
+
+    const guestName = nameInput.value.trim();
+    if (!guestName) {
+      showMsg("Lütfen adınızı girin.", "error");
+      nameInput.focus();
+      return;
+    }
+    if (selectedFiles.length === 0) {
+      showMsg("Lütfen en az bir fotoğraf seçin.", "error");
+      return;
+    }
+    if (!APPS_SCRIPT_URL) {
+      showMsg("Uygulama henüz yapılandırılmamış. Lütfen APPS_SCRIPT_URL değerini ayarlayın.", "error");
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Yükleniyor…";
+    progressList.innerHTML = "";
+
+    // Build progress rows
+    const progressItems = selectedFiles.map((file, i) => {
+      const item = document.createElement("div");
+      item.className = "progress-item";
+      item.innerHTML = `
+        <div class="name">
+          <span>${escHtml(file.name)}</span>
+          <span class="pct-${i}">0%</span>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" id="bar-${i}"></div>
+        </div>`;
+      progressList.appendChild(item);
+      return item;
+    });
+
+    let successCount = 0;
+    let errors = [];
+
+    for (let i = 0; i < selectedFiles.length; i++) {
+      const file = selectedFiles[i];
+      try {
+        await uploadFile(file, guestName, i);
+        successCount++;
+        setProgress(i, 100);
+      } catch (err) {
+        setProgress(i, 100, true);
+        errors.push(file.name + ": " + err.message);
+      }
+    }
+
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Yükle";
+
+    if (errors.length === 0) {
+      showMsg(`Teşekkürler ${escHtml(guestName)}! Fotoğrafların yüklendi 🎉`, "success");
+      resetForm();
+    } else if (successCount > 0) {
+      showMsg(`${successCount} fotoğraf yüklendi. Bazı hatalar oluştu:\n${errors.join("\n")}`, "error");
+    } else {
+      showMsg("Yükleme başarısız:\n" + errors.join("\n"), "error");
+    }
+  });
+
+  // ── Upload a single file via base64 ───────────────────────────────────────
+  function uploadFile(file, guestName, index) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+
+      reader.onprogress = ev => {
+        if (ev.lengthComputable) {
+          // Reading phase counts as 0–50%
+          setProgress(index, Math.round((ev.loaded / ev.total) * 50));
+        }
+      };
+
+      reader.onload = () => {
+        // base64 string without the data:image/...;base64, prefix
+        const base64 = reader.result.split(",")[1];
+
+        setProgress(index, 55);
+
+        const params = new URLSearchParams();
+        params.append("guestName", guestName);
+        params.append("fileData",  base64);
+        params.append("fileName",  file.name);
+        params.append("mimeType",  file.type || "image/jpeg");
+
+        fetch(APPS_SCRIPT_URL, {
+          method:  "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body:    params.toString()
+        })
+          .then(r => r.json())
+          .then(data => {
+            setProgress(index, 100);
+            if (data.success) {
+              resolve(data);
+            } else {
+              reject(new Error(data.error || "Bilinmeyen hata"));
+            }
+          })
+          .catch(err => reject(new Error("Ağ hatası: " + err.message)));
+      };
+
+      reader.onerror = () => reject(new Error("Dosya okunamadı."));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  function setProgress(index, pct, isError = false) {
+    const bar = document.getElementById(`bar-${index}`);
+    const pctEl = progressList.querySelectorAll(`.pct-${index}`)[0];
+    if (bar) {
+      bar.style.width = pct + "%";
+      if (isError) bar.style.background = "#e87070";
+    }
+    if (pctEl) pctEl.textContent = isError ? "Hata" : pct + "%";
+  }
+
+  function showMsg(text, type) {
+    msgBox.textContent = text;
+    msgBox.className = "message " + type;
+    msgBox.style.display = "block";
+    msgBox.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+
+  function hideMsg() {
+    msgBox.style.display = "none";
+  }
+
+  function resetForm() {
+    selectedFiles = [];
+    previewGrid.innerHTML = "";
+    progressList.innerHTML = "";
+    nameInput.value = "";
+  }
+
+  function escHtml(str) {
+    return str
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+</script>
+</body>
+</html>
