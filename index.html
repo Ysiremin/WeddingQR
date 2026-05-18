@@ -436,7 +436,7 @@
   const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx0iHWftEK0KtfqJe19nXKGyIZ410XNqNt7irgpgQCYjSqXkDDD3_JJBmBC0SiBeYKzLg/exec";
   // ────────────────────────────────────────────────────────────────────────
 
-  const LARGE_FILE_THRESHOLD = 50 * 1024 * 1024; // 50 MB
+  const LARGE_FILE_THRESHOLD = 10 * 1024 * 1024; // 10 MB — base64 overhead ~33%, Apps Script limit ~30MB
 
   const form         = document.getElementById("uploadForm");
   const nameInput    = document.getElementById("guestName");
