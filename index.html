@@ -586,10 +586,10 @@
     const mb = (file.size / 1024 / 1024).toFixed(1);
     log(`Dosya: ${file.name} (${mb} MB, ${file.type || "bilinmiyor"})`);
     if (file.size >= LARGE_FILE_THRESHOLD) {
-      log("Yol: resumable (≥50 MB)");
-      await resumableUpload(file, guestName, index);
+      log("Yol: chunked (≥10 MB)");
+      await chunkedUpload(file, guestName, index);
     } else {
-      log("Yol: direct (< 50 MB)");
+      log("Yol: direct (<10 MB)");
       await directUpload(file, guestName, index);
     }
   }
@@ -644,76 +644,69 @@
     });
   }
 
-  // ── Resumable upload: PUT directly to Drive session URL (≥ 50 MB) ─────────
-  async function resumableUpload(file, guestName, index) {
-    setProgressLabel(index, "Hazırlanıyor…");
-    log("Adım 1: Apps Script'ten upload URL'si isteniyor…");
+  // ── Chunked upload: browser → Apps Script → Drive (≥ 10 MB) ─────────────
+  const CHUNK_SIZE = 4 * 1024 * 1024; // 4 MB per chunk
 
-    const initParams = new URLSearchParams();
-    initParams.append("action",    "initResumable");
-    initParams.append("guestName", guestName);
-    initParams.append("fileName",  file.name);
-    initParams.append("mimeType",  file.type || "application/octet-stream");
-    initParams.append("fileSize",  file.size);
+  async function chunkedUpload(file, guestName, index) {
+    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+    const uploadId    = Date.now() + "_" + Math.random().toString(36).slice(2, 8);
+    log(`Parçalı yükleme: ${totalChunks} parça, ${(file.size/1024/1024).toFixed(1)} MB`);
 
-    let initResp;
-    try {
-      initResp = await fetch(APPS_SCRIPT_URL, {
-        method:  "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body:    initParams.toString()
-      });
-      log("Adım 1 HTTP durum: " + initResp.status);
-    } catch (fetchErr) {
-      log("✗ Adım 1 fetch hatası: " + fetchErr.message);
-      throw new Error("Apps Script'e ulaşılamadı: " + fetchErr.message);
+    for (let i = 0; i < totalChunks; i++) {
+      const chunkStart = i * CHUNK_SIZE;
+      const chunkEnd   = Math.min(chunkStart + CHUNK_SIZE, file.size) - 1;
+      const chunk      = file.slice(chunkStart, chunkEnd + 1);
+
+      log(`Parça ${i+1}/${totalChunks} hazırlanıyor…`);
+      const base64 = await blobToBase64(chunk);
+
+      log(`Parça ${i+1}/${totalChunks} gönderiliyor (${((chunkEnd-chunkStart+1)/1024/1024).toFixed(1)} MB)…`);
+
+      const params = new URLSearchParams();
+      params.append("action",      "uploadChunk");
+      params.append("guestName",   guestName);
+      params.append("fileName",    file.name);
+      params.append("mimeType",    file.type || "application/octet-stream");
+      params.append("uploadId",    uploadId);
+      params.append("chunkIndex",  i);
+      params.append("totalChunks", totalChunks);
+      params.append("totalSize",   file.size);
+      params.append("chunkStart",  chunkStart);
+      params.append("chunkEnd",    chunkEnd);
+      params.append("chunkData",   base64);
+
+      let text;
+      try {
+        const resp = await fetch(APPS_SCRIPT_URL, {
+          method:  "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body:    params.toString()
+        });
+        text = await resp.text();
+        log(`Parça ${i+1} yanıt: ${text.slice(0, 120)}`);
+      } catch (err) {
+        throw new Error(`Parça ${i+1} ağ hatası: ${err.message}`);
+      }
+
+      let data;
+      try { data = JSON.parse(text); }
+      catch { throw new Error(`Parça ${i+1} JSON hatası: ${text.slice(0, 100)}`); }
+
+      if (!data.success) throw new Error(data.error || `Parça ${i+1} başarısız`);
+
+      const pct = Math.round(((i + 1) / totalChunks) * 100);
+      setProgress(index, pct);
+      log(`✓ Parça ${i+1}/${totalChunks} tamam (%${pct})`);
     }
+    log("✓ Tüm parçalar Drive'a yüklendi!");
+  }
 
-    const initText = await initResp.text();
-    log("Adım 1 yanıt: " + initText.slice(0, 300));
-
-    let initData;
-    try { initData = JSON.parse(initText); }
-    catch { throw new Error("JSON parse hatası. Yanıt: " + initText.slice(0, 150)); }
-
-    if (!initData.success) {
-      log("✗ initResumable hatası: " + initData.error);
-      throw new Error(initData.error || "Yükleme oturumu başlatılamadı.");
-    }
-
-    log("✓ Upload URL alındı");
-    const uploadUrl = initData.uploadUrl;
-
-    log("Adım 2: Drive'a PUT başlıyor…");
-    await new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open("PUT", uploadUrl);
-      xhr.setRequestHeader("Content-Range", `bytes 0-${file.size - 1}/${file.size}`);
-
-      xhr.upload.onprogress = ev => {
-        if (ev.lengthComputable) {
-          const pct = Math.round((ev.loaded / ev.total) * 100);
-          setProgress(index, pct);
-          if (pct % 20 === 0) log("PUT ilerleme: %" + pct);
-        }
-      };
-
-      xhr.onload = () => {
-        log("PUT tamamlandı, HTTP: " + xhr.status);
-        if (xhr.status === 200 || xhr.status === 201) {
-          log("✓ Video yüklendi");
-          resolve();
-        } else {
-          const msg = `Drive yükleme hatası (HTTP ${xhr.status}): ${xhr.responseText.slice(0, 200)}`;
-          log("✗ " + msg);
-          reject(new Error(msg));
-        }
-      };
-
-      xhr.onerror   = () => { log("✗ PUT ağ hatası"); reject(new Error("Ağ bağlantısı hatası.")); };
-      xhr.ontimeout = () => { log("✗ PUT zaman aşımı"); reject(new Error("Zaman aşımı.")); };
-
-      xhr.send(file);
+  function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload  = () => resolve(reader.result.split(",")[1]);
+      reader.onerror = () => reject(new Error("Parça okunamadı"));
+      reader.readAsDataURL(blob);
     });
   }
 
