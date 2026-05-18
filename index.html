@@ -558,12 +558,15 @@
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
           body:    params.toString()
         })
-          .then(r => r.json())
-          .then(data => {
+          .then(r => r.text())
+          .then(text => {
+            let data;
+            try { data = JSON.parse(text); }
+            catch { throw new Error("Sunucu yanıt hatası. Apps Script URL'sini ve dağıtım ayarlarını kontrol edin."); }
             if (data.success) resolve(data);
-            else reject(new Error(data.error || "Bilinmeyen hata"));
+            else throw new Error(data.error || "Bilinmeyen hata");
           })
-          .catch(err => reject(new Error("Ağ hatası: " + err.message)));
+          .catch(err => reject(err instanceof Error ? err : new Error("Ağ hatası: " + err.message)));
       };
 
       reader.onerror = () => reject(new Error("Dosya okunamadı."));
@@ -576,19 +579,25 @@
     // Step 1: get session URL from Apps Script
     setProgressLabel(index, "Hazırlanıyor…");
 
+    // Use form-encoded (not JSON) to avoid CORS preflight on Apps Script
+    const initParams = new URLSearchParams();
+    initParams.append("action",    "initResumable");
+    initParams.append("guestName", guestName);
+    initParams.append("fileName",  file.name);
+    initParams.append("mimeType",  file.type || "application/octet-stream");
+    initParams.append("fileSize",  file.size);
+
     const initResp = await fetch(APPS_SCRIPT_URL, {
       method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({
-        action:    "initResumable",
-        guestName: guestName,
-        fileName:  file.name,
-        mimeType:  file.type || "application/octet-stream",
-        fileSize:  file.size
-      })
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body:    initParams.toString()
     });
 
-    const initData = await initResp.json();
+    const initText = await initResp.text();
+    let initData;
+    try { initData = JSON.parse(initText); }
+    catch { throw new Error("Sunucu yanıt hatası. Apps Script URL'sini ve dağıtım ayarlarını kontrol edin."); }
+
     if (!initData.success) {
       throw new Error(initData.error || "Yükleme oturumu başlatılamadı.");
     }
